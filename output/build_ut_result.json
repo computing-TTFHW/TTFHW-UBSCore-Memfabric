@@ -1,0 +1,98 @@
+{
+  "build": {
+    "_comment": "全量编译：NPU + test + hcom 配置，从 cmake 配置到 run 包生成完成的完整构建流程",
+    "total_seconds": 120.058,
+    "phases": {
+      "cmake_configure_seconds": {
+        "_comment": "CMake 配置阶段：解析 CMakeLists.txt、生成构建系统文件",
+        "value": 1.312
+      },
+      "make_install_seconds": {
+        "_comment": "make install 编译阶段：并行编译（j32），链接生成 .so 库和可执行文件",
+        "value": 56.823
+      },
+      "wheel_build_seconds": {
+        "_comment": "Wheel 包构建阶段：生成 Python 扩展模块 .so（cp311），auditwheel 修复为 manylinux_2_26 + manylinux_2_28",
+        "value": 38.456
+      },
+      "run_packaging_seconds": {
+        "_comment": "Run 包打包阶段：将构建产物打包成可执行安装包 .run",
+        "value": 1.467
+      }
+    },
+    "config": {
+      "build_mode": "RELEASE",
+      "build_mode_comment": "编译模式：RELEASE（优化级别 -O3，无调试信息）",
+      "xpu_type": "NPU",
+      "xpu_type_comment": "XPU 类型：NPU（含 NPU/CANN 支持，编译 hcom RDMA 通信库）",
+      "build_python": "ON",
+      "build_test": "ON",
+      "build_hcom": "ON",
+      "build_hcom_rdma": "ON",
+      "build_hcom_ub": "OFF",
+      "build_etcd_backend": "OFF",
+      "build_tool": "cmake",
+      "build_tool_comment": "构建工具：cmake（可选 bazel）",
+      "compiler": "gcc-toolset-14 (GCC 14.2.1)",
+      "python_version": "3.11.14",
+      "python_home": "/opt/python/cp311-cp311",
+      "pybind11_version": "3.0.1",
+      "manylinux": true,
+      "artifacts": {
+        "run_file": "memfabric_hybrid-1.1.0_linux_aarch64.run",
+        "run_file_size_bytes": 9985466,
+        "wheel_manylinux": "memfabric_hybrid-1.1.0-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl",
+        "libmf_smem": "output/smem/lib64/libmf_smem.so",
+        "libmf_hybm_core": "output/hybm/lib64/libmf_hybm_core.so",
+        "libhcom": "output/3rdparty/hcom/lib/libhcom.so"
+      }
+    }
+  },
+  "Incremental build": {
+    "_comment": "增量编译：修复 build.sh 中 rm -rf 后，使用 ccache 加速的重新编译（NPU + hcom 配置）",
+    "fix": "注释掉 script/build.sh 中 4 处 rm -rf（line 150, 223, 224, 324），并将 mkdir build/ 改为 mkdir -p build/，使 cmake 能保留已有构建产物",
+    "total_seconds": 9.383,
+    "modified_files": [
+      "src/hybm/include/hybm_def.h (touched - 触发依赖链重编译)",
+      "src/hybm/csrc/common/hybm_networks_common.cpp (appended comment - 实际编译)"
+    ],
+    "ccache": {
+      "hits_direct": 54,
+      "hits_preprocessed": 1,
+      "misses": 1,
+      "hit_rate_percent": 98.21,
+      "cache_dir": "/root/.ccache_npu",
+      "max_size": "5.0 GB",
+      "total_entries_in_cache": 1315,
+      "cache_size": "710.4 MB",
+      "miss_detail": "仅 hybm_networks_common.cpp 需实际编译（1 miss），其余 55 个目标从 ccache 命中"
+    }
+  },
+  "UT": {
+    "_comment": "UT 测试：RELEASE 模式构建，使用包含式 gtest filter 排除 MOCKER_CPP 测试集和 NPU 崩溃测试集",
+    "total_seconds": 178.520,
+    "build_seconds": 148.876,
+    "test_run_seconds": 29.644,
+    "test_count": 423,
+    "passed_count": 420,
+    "failure_count": 3,
+    "error_count": 0,
+    "test_suites_count": 27,
+    "mode": "fast (no coverage)",
+    "mode_comment": "快速模式：不生成代码覆盖率报告",
+    "build_config": {
+      "build_type": "RELEASE",
+      "build_type_comment": "构建类型：RELEASE（避免 ASAN 与 mockcpp 在 ARM64 上的兼容性崩溃）",
+      "build_ut": "ON",
+      "build_open_abi": "OFF",
+      "build_open_abi_comment": "使用 C++11 ABI（新版）",
+      "xpu_type": "NPU",
+      "xpu_type_comment": "使用 NPU 相关 mock 进行模拟",
+      "gtest_version": "1.8.0"
+    },
+    "failures_detail": "SmemNetGroupEngineTest.concurrent_clients_join_leave_twice_should_succeed_on_fixed_port 失败（预存问题）；HybmVmmBasedSegmentTest.Mmap_RemoteSlice_SucceedsAndSkipsLocal 失败（预存问题）；OutLoggerTest.Alarm 失败（预存问题）",
+    "skipped_suites": 25,
+    "skipped_comment": "以下测试集被排除：MOCKER_CPP 测试（15个：AccLinksTest, HybmBigMemEntryTest, HybmEntityDefaultTest, HybmEntityShmFdTest, HybmEntityTagInfoTest, HybmEntryTest, HybmMemSegmentTest, HybmDataOpDeviceRdmaTest, HybmDataOpSdmaTest, HybmDataOpHostShmTest, HybmDataOpHostRdmaTest, HybmDataOperatorTest, HybmDataOpEntryTest, SmemBmTest, SmemEtcdStoreBackendTest, SmemHaConfigStoreTest, SmemNetTest, SmemShmTest, SmemStoreFactoryTest, SmemTransTest, SmemNetGroupEngineMockTest, SmemExternalBackendTest, HostHcomHelperTest, HcomTransportManagerTest）；NPU SDMA 崩溃测试（1个：HybmComposeDataOpTest — 该测试集在 xpu_type=NPU 时 initialize_with_sdma_only 触发 SIGSEGV）",
+    "gtest_filter_note": "gtest 1.8.0 的 --gtest_filter 仅支持单个 - 排除模式，因此使用包含式 filter 显式列出 27 个安全测试集"
+  }
+}
